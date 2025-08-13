@@ -28,6 +28,20 @@
             100% { background-position: 0% 50%; }
         }
         
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        @keyframes wiggle {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(5deg); }
+            50% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+            100% { transform: rotate(0deg); }
+        }
+        
         .birthday-card {
             background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
             background-size: 400% 400%;
@@ -42,12 +56,28 @@
             animation: pulse 2s infinite;
         }
         
+        .shake-animation {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        .wiggle-animation {
+            animation: wiggle 0.5s ease-in-out;
+        }
+        
         .text-shadow {
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
         
         .dancing-font {
             font-family: 'Dancing Script', cursive;
+        }
+
+        /* Emoji rain effect */
+        .emoji-rain {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0;
         }
 
         /* Mobile-specific styles */
@@ -88,18 +118,21 @@
     </style>
 </head>
 
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 relative">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 relative overflow-hidden">
     <!-- Confetti Canvas (hidden) -->
     <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-50" style="display: none;"></canvas>
 
     <!-- Countdown -->
     <div id="countdown" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80 z-40 transition-opacity duration-1000" style="display: none;">
         <div class="text-center p-4">
-            <h1 class="text-4xl md:text-6xl lg:text-8xl font-bold text-white mb-4 md:mb-8 animate__animated animate__pulse">Happy Birthday Ahmad!</h1>
+            <h1 id="countdown-text" class="text-4xl md:text-6xl lg:text-8xl font-bold text-white mb-4 md:mb-8 animate__animated animate__pulse">Get Ready Janu...! 🎉</h1>
             <div class="text-3xl md:text-5xl lg:text-7xl font-bold text-white flex justify-center space-x-2 md:space-x-4">
                 <div class="bg-white bg-opacity-20 rounded-lg p-2 md:p-4 w-16 md:w-24 lg:w-32">
                     <span id="countdown-seconds" class="block">5</span>
                 </div>
+            </div>
+            <div id="countdown-comments" class="text-xl md:text-2xl text-white mt-4">
+                Loading the party cannons... 🎊
             </div>
         </div>
     </div>
@@ -148,7 +181,6 @@
                     <video playsinline src="./images/admadVideo.mp4" loop autoplay muted class="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover border-4 border-white border-opacity-50 shadow-lg"></video>
                 </div>
                 <div class="pulse-animation mobile-mt-4" style="animation-delay: 1s;">
-                    
                     <img src="https://i.giphy.com/media/kMI3z7b9RWrYQbsXd2/giphy.webp" alt="Celebration" class="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-white border-opacity-50 shadow-lg">
                 </div>
             </div>
@@ -163,9 +195,18 @@
     </div>
     
     <!-- Start Button - Fixed position at the center -->
-    <button id="start-btn" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold py-3 px-6 md:py-4 md:px-8 rounded-full shadow-lg hover:scale-110 transition-all duration-300 animate__animated animate__pulse animate__infinite">
-        Click here Janu
+    <button id="start-btn" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold py-3 px-6 md:py-4 md:px-8 rounded-full shadow-lg hover:scale-110 transition-all duration-300 animate__animated animate__pulse animate__infinite border-4 border-yellow-300 hover:border-yellow-400">
+        <span class="flex items-center">
+            <span class="mr-2">🎂</span>
+            <span>Click Me Janu!</span>
+            <span class="ml-2">🎁</span>
+        </span>
     </button>
+
+    <!-- Funny hover messages -->
+    <div id="hover-messages" class="fixed bottom-4 left-0 right-0 text-center text-white text-xl z-40 opacity-0 transition-opacity duration-300">
+        What are you waiting for? The cake is getting cold! 🎂
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -176,19 +217,68 @@
             // DOM Elements
             const startBtn = document.getElementById('start-btn');
             const countdownEl = document.getElementById('countdown');
+            const countdownText = document.getElementById('countdown-text');
             const countdownSeconds = document.getElementById('countdown-seconds');
+            const countdownComments = document.getElementById('countdown-comments');
             const birthdayCard = document.getElementById('birthday-card');
             const confettiCanvas = document.getElementById('confetti-canvas');
+            const hoverMessages = document.getElementById('hover-messages');
             
             // Make sure countdown is initially hidden
             countdownEl.style.display = 'none';
+            
+            // Funny countdown messages
+            const countdownMessages = [
+                "Preparing the birthday cake... 🎂",
+                "Inflating balloons... 🎈",
+                "Training the party unicorns... 🦄",
+                "Chilling the drinks... 🥤",
+                "Warming up the dance floor... 💃",
+                "Final touches... ✨"
+            ];
+            
+            // Start button hover effects
+            startBtn.addEventListener('mouseenter', function() {
+                // Wiggle animation
+                startBtn.classList.add('wiggle-animation');
+                
+                // Show random hover message
+                const messages = [
+                    "Don't be shy! Click me! 😊",
+                    "I won't bite... probably 😜",
+                    "The party can't start without you! 🎉",
+                    "What are you waiting for? 🎁",
+                    "Click me for a surprise! 🥳",
+                    "The cake is getting cold! 🎂"
+                ];
+                hoverMessages.textContent = messages[Math.floor(Math.random() * messages.length)];
+                hoverMessages.style.opacity = '1';
+                
+                // Remove animation class after it ends
+                setTimeout(() => {
+                    startBtn.classList.remove('wiggle-animation');
+                }, 500);
+            });
+            
+            startBtn.addEventListener('mouseleave', function() {
+                hoverMessages.style.opacity = '0';
+            });
             
             // Start button click handler
             startBtn.addEventListener('click', function() {
                 console.log("Button clicked!"); // Debugging
                 
-                // Hide start button
-                startBtn.style.display = 'none';
+                // Create emoji rain effect on click
+                createEmojiRain();
+                
+                // Shake button for fun
+                startBtn.classList.add('shake-animation');
+                
+                // Hide start button after animation
+                setTimeout(() => {
+                    startBtn.style.display = 'none';
+                    hoverMessages.style.display = 'none';
+                }, 500);
                 
                 // Show countdown
                 countdownEl.style.display = 'flex';
@@ -200,6 +290,22 @@
                 const countdownInterval = setInterval(() => {
                     seconds--;
                     countdownSeconds.textContent = seconds;
+                    
+                    // Update countdown text for fun
+                    if (seconds === 4) {
+                        countdownText.textContent = "Almost there...! 🎈";
+                    } else if (seconds === 3) {
+                        countdownText.textContent = "Getting closer...! 🎊";
+                    } else if (seconds === 2) {
+                        countdownText.textContent = "Ready... Set...! 🎁";
+                    } else if (seconds === 1) {
+                        countdownText.textContent = "Here we gooooo! 🥳";
+                    }
+                    
+                    // Update funny comments
+                    if (seconds < countdownMessages.length) {
+                        countdownComments.textContent = countdownMessages[countdownMessages.length - seconds - 1];
+                    }
                     
                     if (seconds <= 0) {
                         clearInterval(countdownInterval);
@@ -223,11 +329,43 @@
                                 
                                 // Start quote slider
                                 startQuoteSlider();
+                                
+                                // Create more emoji rain
+                                setInterval(createEmojiRain, 3000);
                             }, 50);
                         }, 1000);
                     }
                 }, 1000);
             });
+            
+            // Function to create emoji rain
+            function createEmojiRain() {
+                const emojis = ['🎉', '🎂', '🎁', '🥳', '🎈', '✨', '💝', '🍰', '👑', '❤️'];
+                const container = document.body;
+                
+                for (let i = 0; i < 20; i++) {
+                    const emoji = document.createElement('div');
+                    emoji.className = 'emoji-rain';
+                    emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                    emoji.style.left = Math.random() * 100 + 'vw';
+                    emoji.style.top = '-50px';
+                    emoji.style.fontSize = (Math.random() * 20 + 10) + 'px';
+                    
+                    container.appendChild(emoji);
+                    
+                    // Animate emoji
+                    setTimeout(() => {
+                        emoji.style.opacity = '1';
+                        emoji.style.transform = `translate(${Math.random() * 100 - 50}px, ${window.innerHeight + 50}px) rotate(${Math.random() * 360}deg)`;
+                        emoji.style.transition = `all ${Math.random() * 3 + 2}s linear`;
+                    }, 10);
+                    
+                    // Remove emoji after animation
+                    setTimeout(() => {
+                        emoji.remove();
+                    }, 5000);
+                }
+            }
             
             // Quote slider functionality
             function startQuoteSlider() {
